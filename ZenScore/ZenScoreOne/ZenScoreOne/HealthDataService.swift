@@ -98,6 +98,41 @@ class HealthDataService: ObservableObject {
         }
     }
     
+    // MARK: - Get Previous Week Summary (for comparison)
+    func getPreviousWeekSummary(completion: @escaping (WeeklySummary?) -> Void) {
+        let calendar = Calendar.current
+        let endDate = calendar.date(byAdding: .day, value: -7, to: Date()) ?? Date()
+        let startDate = calendar.date(byAdding: .day, value: -14, to: Date()) ?? endDate
+        
+        var allSnapshots: [DailyHealthSnapshot] = []
+        let group = DispatchGroup()
+        
+        // Generate dates for the range
+        var dates: [Date] = []
+        var currentDate = startDate
+        while currentDate <= endDate {
+            dates.append(currentDate)
+            currentDate = calendar.date(byAdding: .day, value: 1, to: currentDate) ?? endDate
+        }
+        
+        // Fetch snapshot for each day
+        for date in dates {
+            group.enter()
+            getDailySnapshot(date: date) { snapshot in
+                if let snapshot = snapshot {
+                    allSnapshots.append(snapshot)
+                }
+                group.leave()
+            }
+        }
+        
+        group.notify(queue: .main) {
+            let sortedSnapshots = allSnapshots.sorted { $0.date < $1.date }
+            let summary = WeeklySummary(snapshots: sortedSnapshots)
+            completion(summary)
+        }
+    }
+    
     // MARK: - Get Monthly Summary
     func getMonthlySummary(completion: @escaping (MonthlySummary?) -> Void) {
         fetchMultipleDaySnapshots(range: .month) { snapshots in

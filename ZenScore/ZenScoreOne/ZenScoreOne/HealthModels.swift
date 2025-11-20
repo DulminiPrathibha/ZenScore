@@ -231,8 +231,11 @@ struct TwoMonthSummary: Codable {
         self.dailySnapshots = snapshots
         
         let calendar = Calendar.current
-        self.endDate = Date()
-        self.startDate = calendar.date(byAdding: .day, value: -60, to: endDate) ?? endDate
+        let endDate = Date()
+        let startDate = calendar.date(byAdding: .day, value: -60, to: endDate) ?? endDate
+        
+        self.endDate = endDate
+        self.startDate = startDate
         
         // Calculate averages
         let count = Double(max(snapshots.count, 1))
@@ -242,7 +245,7 @@ struct TwoMonthSummary: Codable {
         self.averageActivityLoad = snapshots.map { $0.activityLoad }.reduce(0, +) / count
         self.averageRecoveryScore = snapshots.map { $0.recoveryScore }.reduce(0, +) / count
         
-        // Split into two months
+        // Split into two months using local variables
         let month1Snapshots = snapshots.filter { snapshot in
             let daysSinceStart = calendar.dateComponents([.day], from: startDate, to: snapshot.date).day ?? 0
             return daysSinceStart < 30

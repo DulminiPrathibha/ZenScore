@@ -9,8 +9,12 @@ import SwiftUI
 
 // MARK: - Trends & Analytics Dashboard View
 struct TrendsAnalyticsView: View {
+    @StateObject private var healthService = HealthDataService.shared
     @State private var selectedPeriod: Period = .weekly
     @State private var selectedMetric: MetricType = .sleep
+    @State private var monthlyInsight: String = ""
+    
+    private let trendService = TrendService.shared
     
     enum Period {
         case weekly, monthly
@@ -36,111 +40,158 @@ struct TrendsAnalyticsView: View {
                         .frame(maxWidth: .infinity, alignment: .center)
                         .padding(.top, 20)
                     
-                    // Recovery Score Section
-                    VStack(alignment: .leading, spacing: 16) {
-                        HStack {
-                            Text("Recovery Score")
-                                .font(.system(size: 18, weight: .semibold))
-                                .foregroundColor(.white)
-                            
-                            Spacer()
-                            
-                            // Period Toggle
-                            HStack(spacing: 8) {
-                                PeriodButton(title: "Weekly", isSelected: selectedPeriod == .weekly) {
-                                    selectedPeriod = .weekly
-                                }
-                                PeriodButton(title: "Monthly", isSelected: selectedPeriod == .monthly) {
-                                    selectedPeriod = .monthly
-                                }
-                            }
-                        }
-                        .padding(.horizontal, 20)
-                        
-                        // Recovery Score Chart
-                        LineChartView(
-                            data: [75, 78, 82, 79, 85, 88, 92],
-                            labels: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
-                            minValue: 70,
-                            maxValue: 95,
-                            color: Color(hex: "ECA9FF")
-                        )
-                        .frame(height: 200)
-                        .padding(.horizontal, 20)
-                    }
-                    
-                    // Metric Tabs
-                    ScrollView(.horizontal, showsIndicators: false) {
-                        HStack(spacing: 12) {
-                            MetricTab(icon: "home_sleep_quality", label: "Sleep", isSelected: selectedMetric == .sleep) {
-                                selectedMetric = .sleep
-                            }
-                            MetricTab(icon: "home_hrv", label: "HRV", isSelected: selectedMetric == .hrv) {
-                                selectedMetric = .hrv
-                            }
-                            MetricTab(icon: "home_resting_hr", label: "RHR", isSelected: selectedMetric == .rhr) {
-                                selectedMetric = .rhr
-                            }
-                            MetricTab(icon: "home_activity_load", label: "Activity", isSelected: selectedMetric == .activity) {
-                                selectedMetric = .activity
-                            }
-                        }
-                        .padding(.horizontal, 20)
-                    }
-                    
-                    // Sleep Duration Section
-                    VStack(alignment: .leading, spacing: 16) {
-                        HStack {
-                            Text("Sleep Duration")
-                                .font(.system(size: 18, weight: .semibold))
-                                .foregroundColor(.white)
-                            
-                            Spacer()
-                            
-                            Text("+12%")
-                                .font(.system(size: 14, weight: .semibold))
-                                .foregroundColor(Color(hex: "22c55e"))
-                        }
-                        .padding(.horizontal, 20)
-                        
-                        // Sleep Duration Chart
-                        LineChartView(
-                            data: [6.5, 7.2, 7.8, 7.5, 8.0, 7.6, 8.2],
-                            labels: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
-                            minValue: 0,
-                            maxValue: 8,
-                            color: Color(hex: "ECA9FF")
-                        )
-                        .frame(height: 200)
-                        .padding(.horizontal, 20)
-                    }
-                    
-                    // Summary Statistics Section
-                    VStack(alignment: .leading, spacing: 16) {
-                        Text("Summary Statistics")
-                            .font(.system(size: 18, weight: .semibold))
+                    if healthService.isLoading {
+                        ProgressView("Loading trends...")
                             .foregroundColor(.white)
+                            .frame(maxWidth: .infinity, alignment: .center)
+                            .padding(.top, 50)
+                    } else {
+                        // Recovery Score Section
+                        VStack(alignment: .leading, spacing: 16) {
+                            HStack {
+                                Text("Recovery Score")
+                                    .font(.system(size: 18, weight: .semibold))
+                                    .foregroundColor(.white)
+                                
+                                Spacer()
+                                
+                                // Period Toggle
+                                HStack(spacing: 8) {
+                                    PeriodButton(title: "Weekly", isSelected: selectedPeriod == .weekly) {
+                                        selectedPeriod = .weekly
+                                    }
+                                    PeriodButton(title: "Monthly", isSelected: selectedPeriod == .monthly) {
+                                        selectedPeriod = .monthly
+                                    }
+                                }
+                            }
                             .padding(.horizontal, 20)
-                        
-                        VStack(spacing: 12) {
-                            SummaryStatCard(icon: "summary_statistics_average_score", label: "Average Score", value: "82.4")
-                            SummaryStatCard(icon: "summary_statistics_average_sleep", label: "Average Sleep", value: "82.4")
-                            SummaryStatCard(icon: "summary_statistics_peak_activity_day", label: "Peak Activity Day", value: "82.4")
-                            SummaryStatCard(icon: "summary_statistics_average_hrv", label: "Average HRV", value: "82.4")
-                            SummaryStatCard(icon: "summary_statistics_average_rhr", label: "Average RHR", value: "82.4")
+                            
+                            // Recovery Score Chart
+                            if let data = getRecoveryScoreData(), !data.isEmpty {
+                                LineChartView(
+                                    data: data,
+                                    labels: getRecoveryScoreLabels(),
+                                    minValue: getMinRecoveryScore(data),
+                                    maxValue: getMaxRecoveryScore(data),
+                                    color: Color(hex: "ECA9FF")
+                                )
+                                .frame(height: 200)
+                                .padding(.horizontal, 20)
+                            } else {
+                                Text("No data available")
+                                    .foregroundColor(.gray)
+                                    .frame(maxWidth: .infinity)
+                                    .frame(height: 200)
+                            }
                         }
-                        .padding(.horizontal, 20)
-                    }
                     
-                    // Weekly Insight Section
-                    VStack(alignment: .leading, spacing: 16) {
-                        Text("Weekly Insight")
-                            .font(.system(size: 18, weight: .semibold))
-                            .foregroundColor(.white)
+                        // Metric Tabs
+                        ScrollView(.horizontal, showsIndicators: false) {
+                            HStack(spacing: 12) {
+                                MetricTab(icon: "home_sleep_quality", label: "Sleep", isSelected: selectedMetric == .sleep) {
+                                    selectedMetric = .sleep
+                                }
+                                MetricTab(icon: "home_hrv", label: "HRV", isSelected: selectedMetric == .hrv) {
+                                    selectedMetric = .hrv
+                                }
+                                MetricTab(icon: "home_resting_hr", label: "RHR", isSelected: selectedMetric == .rhr) {
+                                    selectedMetric = .rhr
+                                }
+                                MetricTab(icon: "home_activity_load", label: "Activity", isSelected: selectedMetric == .activity) {
+                                    selectedMetric = .activity
+                                }
+                            }
                             .padding(.horizontal, 20)
+                        }
                         
-                        WeeklyInsightCard()
+                        // Selected Metric Chart Section
+                        VStack(alignment: .leading, spacing: 16) {
+                            HStack {
+                                Text(getMetricTitle())
+                                    .font(.system(size: 18, weight: .semibold))
+                                    .foregroundColor(.white)
+                                
+                                Spacer()
+                                
+                                if let trend = getMetricTrendPercentage() {
+                                    Text(trend)
+                                        .font(.system(size: 14, weight: .semibold))
+                                        .foregroundColor(trend.hasPrefix("+") ? Color(hex: "22c55e") : Color(hex: "ef4444"))
+                                }
+                            }
                             .padding(.horizontal, 20)
+                            
+                            // Metric Chart
+                            if let data = getMetricData(), !data.isEmpty {
+                                LineChartView(
+                                    data: data,
+                                    labels: getMetricLabels(),
+                                    minValue: 0,
+                                    maxValue: getMetricMaxValue(data),
+                                    color: Color(hex: "ECA9FF")
+                                )
+                                .frame(height: 200)
+                                .padding(.horizontal, 20)
+                            } else {
+                                Text("No data available")
+                                    .foregroundColor(.gray)
+                                    .frame(maxWidth: .infinity)
+                                    .frame(height: 200)
+                            }
+                        }
+                    
+                        // Summary Statistics Section
+                        if let monthly = healthService.monthlySummary {
+                            VStack(alignment: .leading, spacing: 16) {
+                                Text("Summary Statistics")
+                                    .font(.system(size: 18, weight: .semibold))
+                                    .foregroundColor(.white)
+                                    .padding(.horizontal, 20)
+                                
+                                VStack(spacing: 12) {
+                                    SummaryStatCard(
+                                        icon: "summary_statistics_average_score",
+                                        label: "Average Score",
+                                        value: String(format: "%.1f", monthly.averageRecoveryScore)
+                                    )
+                                    SummaryStatCard(
+                                        icon: "summary_statistics_average_sleep",
+                                        label: "Average Sleep",
+                                        value: formatSleepValue(monthly.averageSleep)
+                                    )
+                                    SummaryStatCard(
+                                        icon: "summary_statistics_peak_activity_day",
+                                        label: "Peak Activity Day",
+                                        value: getPeakActivityDay(monthly)
+                                    )
+                                    SummaryStatCard(
+                                        icon: "summary_statistics_average_hrv",
+                                        label: "Average HRV",
+                                        value: "\(Int(monthly.averageHRV)) ms"
+                                    )
+                                    SummaryStatCard(
+                                        icon: "summary_statistics_average_rhr",
+                                        label: "Average RHR",
+                                        value: "\(Int(monthly.averageRestingHR)) bpm"
+                                    )
+                                }
+                                .padding(.horizontal, 20)
+                            }
+                        }
+                    
+                        // Monthly Insight Section
+                        if !monthlyInsight.isEmpty {
+                            VStack(alignment: .leading, spacing: 16) {
+                                Text("Monthly Insight")
+                                    .font(.system(size: 18, weight: .semibold))
+                                    .foregroundColor(.white)
+                                    .padding(.horizontal, 20)
+                                
+                                WeeklyInsightCard(insight: monthlyInsight)
+                                    .padding(.horizontal, 20)
+                            }
+                        }
                     }
                     
                     // Bottom padding for tab bar
@@ -149,6 +200,145 @@ struct TrendsAnalyticsView: View {
                 }
             }
         }
+        .onAppear {
+            loadTrends()
+        }
+    }
+    
+    // MARK: - Helper Functions
+    
+    private func loadTrends() {
+        healthService.getMonthlySummary { summary in
+            if let summary = summary {
+                // Generate monthly insight
+                self.monthlyInsight = trendService.generateMonthlyInsight(from: summary)
+            }
+        }
+    }
+    
+    private func getRecoveryScoreData() -> [Double]? {
+        if selectedPeriod == .weekly {
+            return healthService.weeklySummary?.dailySnapshots.map { $0.recoveryScore }
+        } else {
+            return healthService.monthlySummary?.dailySnapshots.map { $0.recoveryScore }
+        }
+    }
+    
+    private func getRecoveryScoreLabels() -> [String] {
+        if selectedPeriod == .weekly {
+            if let snapshots = healthService.weeklySummary?.dailySnapshots {
+                return trendService.generateDateLabels(for: snapshots, format: .dayOfWeek)
+            }
+        } else {
+            if let snapshots = healthService.monthlySummary?.dailySnapshots {
+                // Show every 5th day for monthly view
+                let filtered = snapshots.enumerated().filter { $0.offset % 5 == 0 }.map { $0.element }
+                return trendService.generateDateLabels(for: filtered, format: .dayOfMonth)
+            }
+        }
+        return []
+    }
+    
+    private func getMinRecoveryScore(_ data: [Double]) -> Double {
+        let minVal = data.min() ?? 0
+        return max(minVal - 10, 0)
+    }
+    
+    private func getMaxRecoveryScore(_ data: [Double]) -> Double {
+        let maxVal = data.max() ?? 100
+        return min(maxVal + 10, 100)
+    }
+    
+    private func getMetricData() -> [Double]? {
+        let snapshots = selectedPeriod == .weekly ?
+            healthService.weeklySummary?.dailySnapshots :
+            healthService.monthlySummary?.dailySnapshots
+        
+        guard let snapshots = snapshots else { return nil }
+        
+        switch selectedMetric {
+        case .sleep:
+            return trendService.getMetricTrend(snapshots: snapshots, metric: .sleep)
+        case .hrv:
+            return trendService.getMetricTrend(snapshots: snapshots, metric: .hrv)
+        case .rhr:
+            return trendService.getMetricTrend(snapshots: snapshots, metric: .restingHR)
+        case .activity:
+            return trendService.getMetricTrend(snapshots: snapshots, metric: .activity)
+        }
+    }
+    
+    private func getMetricLabels() -> [String] {
+        if selectedPeriod == .weekly {
+            if let snapshots = healthService.weeklySummary?.dailySnapshots {
+                return trendService.generateDateLabels(for: snapshots, format: .dayOfWeek)
+            }
+        } else {
+            if let snapshots = healthService.monthlySummary?.dailySnapshots {
+                let filtered = snapshots.enumerated().filter { $0.offset % 5 == 0 }.map { $0.element }
+                return trendService.generateDateLabels(for: filtered, format: .dayOfMonth)
+            }
+        }
+        return []
+    }
+    
+    private func getMetricMaxValue(_ data: [Double]) -> Double {
+        let maxVal = data.max() ?? 100
+        switch selectedMetric {
+        case .sleep:
+            return max(maxVal + 1, 10)
+        case .hrv:
+            return max(maxVal + 10, 100)
+        case .rhr:
+            return max(maxVal + 10, 100)
+        case .activity:
+            return max(maxVal + 50, 500)
+        }
+    }
+    
+    private func getMetricTitle() -> String {
+        switch selectedMetric {
+        case .sleep: return "Sleep Duration"
+        case .hrv: return "Heart Rate Variability"
+        case .rhr: return "Resting Heart Rate"
+        case .activity: return "Activity Load"
+        }
+    }
+    
+    private func getMetricTrendPercentage() -> String? {
+        guard let data = getMetricData(), data.count > 1 else { return nil }
+        
+        let halfPoint = data.count / 2
+        let firstHalf = Array(data.prefix(halfPoint))
+        let secondHalf = Array(data.suffix(data.count - halfPoint))
+        
+        guard !firstHalf.isEmpty && !secondHalf.isEmpty else { return nil }
+        
+        let firstAvg = firstHalf.reduce(0, +) / Double(firstHalf.count)
+        let secondAvg = secondHalf.reduce(0, +) / Double(secondHalf.count)
+        
+        let percentChange = ((secondAvg - firstAvg) / max(firstAvg, 0.01)) * 100
+        
+        if abs(percentChange) < 1 {
+            return nil
+        }
+        
+        return String(format: "%+.1f%%", percentChange)
+    }
+    
+    private func formatSleepValue(_ hours: Double) -> String {
+        let h = Int(hours)
+        let m = Int((hours - Double(h)) * 60)
+        return "\(h)h \(m)m"
+    }
+    
+    private func getPeakActivityDay(_ monthly: MonthlySummary) -> String {
+        guard let peak = monthly.dailySnapshots.max(by: { $0.activityLoad < $1.activityLoad }) else {
+            return "--"
+        }
+        let formatter = DateFormatter()
+        formatter.dateFormat = "MMM d"
+        return formatter.string(from: peak.date)
     }
 }
 
@@ -389,6 +579,8 @@ struct SummaryStatCard: View {
 
 // MARK: - Weekly Insight Card
 struct WeeklyInsightCard: View {
+    let insight: String
+    
     var body: some View {
         HStack(alignment: .top, spacing: 16) {
             // Light bulb icon
@@ -397,19 +589,20 @@ struct WeeklyInsightCard: View {
                     .fill(Color(hex: "6C636F"))
                     .frame(width: 48, height: 48)
                 
-                Image("weekly_insight_great_progress")
+                Image(systemName: "lightbulb.fill")
                     .resizable()
                     .scaledToFit()
-                    .frame(width: 28, height: 28)
+                    .frame(width: 24, height: 24)
+                    .foregroundColor(Color(hex: "39FFB6"))
             }
             
             // Content
             VStack(alignment: .leading, spacing: 8) {
-                Text("Great Progress!")
+                Text("Monthly Progress")
                     .font(.system(size: 18, weight: .bold))
                     .foregroundColor(Color(hex: "39FFB6"))
                 
-                Text("Your recovery score improved by 5.2% this week. Consistent sleep patterns and increased HRV are contributing to better overall recovery.")
+                Text(insight)
                     .font(.system(size: 13, weight: .regular))
                     .foregroundColor(.gray)
                     .lineLimit(nil)
@@ -436,3 +629,4 @@ struct WeeklyInsightCard: View {
 #Preview {
     TrendsAnalyticsView()
 }
+

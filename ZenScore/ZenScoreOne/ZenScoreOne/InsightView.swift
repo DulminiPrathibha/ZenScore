@@ -9,6 +9,14 @@ import SwiftUI
 
 // MARK: - Insights Dashboard View
 struct InsightView: View {
+    @StateObject private var healthService = HealthDataService.shared
+    @State private var recommendations: [Recommendation] = []
+    @State private var weeklyInsight: String = ""
+    @State private var previousWeekSummary: WeeklySummary?
+    
+    private let recommendationService = RecommendationService.shared
+    private let trendService = TrendService.shared
+    
     var body: some View {
         ZStack {
             // Dark background
@@ -25,85 +33,102 @@ struct InsightView: View {
                         .frame(maxWidth: .infinity, alignment: .center)
                         .padding(.top, 20)
                     
-                    // Metrics Analysis Section
-                    VStack(alignment: .leading, spacing: 16) {
-                        Text("Metrics Analysis")
-                            .font(.system(size: 18, weight: .semibold))
+                    if healthService.isLoading {
+                        ProgressView("Loading insights...")
                             .foregroundColor(.white)
+                            .frame(maxWidth: .infinity, alignment: .center)
+                            .padding(.top, 50)
+                    } else if let weekly = healthService.weeklySummary {
+                        // Metrics Analysis Section
+                        VStack(alignment: .leading, spacing: 16) {
+                            Text("Weekly Metrics Analysis")
+                                .font(.system(size: 18, weight: .semibold))
+                                .foregroundColor(.white)
+                                .padding(.horizontal, 20)
+                            
+                            VStack(spacing: 12) {
+                                // Sleep Analysis
+                                MetricAnalysisCard(
+                                    iconName: "metrics_analysis_sleep_quality",
+                                    title: "Sleep Duration",
+                                    subtitle: formatSleepDuration(weekly.averageSleep),
+                                    description: getSleepInsight(current: weekly, previous: previousWeekSummary),
+                                    trend: weekly.sleepTrend
+                                )
+                                
+                                // Resting Heart Rate Analysis
+                                MetricAnalysisCard(
+                                    iconName: "metrics_analysis_resting_heart_rate",
+                                    title: "Resting Heart Rate",
+                                    subtitle: "\(Int(weekly.averageRestingHR)) bpm",
+                                    description: getRHRInsight(current: weekly, previous: previousWeekSummary),
+                                    trend: weekly.rhrTrend
+                                )
+                                
+                                // HRV Analysis
+                                MetricAnalysisCard(
+                                    iconName: "metrics_analysis_heart_rate_variability",
+                                    title: "Heart Rate Variability",
+                                    subtitle: "\(Int(weekly.averageHRV)) ms",
+                                    description: getHRVInsight(current: weekly, previous: previousWeekSummary),
+                                    trend: weekly.hrvTrend
+                                )
+                                
+                                // Activity Load Analysis
+                                MetricAnalysisCard(
+                                    iconName: "metrics_analysis_activityl_load",
+                                    title: "Activity Load",
+                                    subtitle: getActivityLevel(weekly.averageActivityLoad),
+                                    description: getActivityInsight(current: weekly, previous: previousWeekSummary),
+                                    trend: weekly.activityTrend
+                                )
+                            }
                             .padding(.horizontal, 20)
-                        
-                        VStack(spacing: 12) {
-                            MetricAnalysisCard(
-                                iconName: "metrics_analysis_sleep_quality",
-                                title: "Sleep Quality",
-                                subtitle: "8h 24m",
-                                description: "Your deep sleep increased by 18 minutes. Continue maintaining your bedtime routine for optimal recovery."
-                            )
-                            
-                            MetricAnalysisCard(
-                                iconName: "metrics_analysis_resting_heart_rate",
-                                title: "Resting Heart Rate",
-                                subtitle: "54 bpm",
-                                description: "Your RHR is trending lower, indicating improved cardiovascular fitness and recovery capacity."
-                            )
-                            
-                            MetricAnalysisCard(
-                                iconName: "metrics_analysis_heart_rate_variability",
-                                title: "Heart Rate Variability",
-                                subtitle: "67 ms",
-                                description: "Strong HRV score suggests your nervous system is well-balanced. Great time for training."
-                            )
-                            
-                            MetricAnalysisCard(
-                                iconName: "metrics_analysis_activityl_load",
-                                title: "Activity Load",
-                                subtitle: "Moderate",
-                                description: "Your training load is balanced. Consider adding one high-intensity session this week."
-                            )
                         }
-                        .padding(.horizontal, 20)
-                    }
-                    
-                    // Recommendations Section
-                    VStack(alignment: .leading, spacing: 16) {
-                        Text("Recommendations")
-                            .font(.system(size: 18, weight: .semibold))
-                            .foregroundColor(.white)
+                        
+                        // Recommendations Section
+                        VStack(alignment: .leading, spacing: 16) {
+                            Text("Recommendations")
+                                .font(.system(size: 18, weight: .semibold))
+                                .foregroundColor(.white)
+                                .padding(.horizontal, 20)
+                                .padding(.top, 8)
+                            
+                            VStack(spacing: 12) {
+                                ForEach(recommendations) { recommendation in
+                                    RecommendationCard(
+                                        iconName: recommendation.iconName,
+                                        title: recommendation.title,
+                                        description: recommendation.description
+                                    )
+                                }
+                            }
                             .padding(.horizontal, 20)
-                            .padding(.top, 8)
-                        
-                        VStack(spacing: 12) {
-                            RecommendationCard(
-                                iconName: "recommendations_activity_load",
-                                title: "Activity Load",
-                                description: "Your training load is balanced. Consider adding one high-intensity session this week."
-                            )
-                            
-                            RecommendationCard(
-                                iconName: "recommendations_light_strength_training",
-                                title: "Light Strength Training",
-                                description: "Try a 30-minute resistance workout. Your recovery score indicates you're ready for moderate intensity."
-                            )
-                            
-                            RecommendationCard(
-                                iconName: "recommendations_stay_hydrated",
-                                title: "Stay Hydrated",
-                                description: "Drink at least 2.5L of water today to support cellular recovery and metabolic function."
-                            )
-                            
-                            RecommendationCard(
-                                iconName: "recommendations_breath_work_session",
-                                title: "Breath-work Session",
-                                description: "5 minutes of deep breathing can further enhance your HRV and reduce stress levels."
-                            )
-                            
-                            RecommendationCard(
-                                iconName: "recommendations_morning_sunlight",
-                                title: "Morning Sunlight",
-                                description: "Get 10-15 minutes of natural light exposure to regulate your circadian rhythm and boost energy."
-                            )
                         }
-                        .padding(.horizontal, 20)
+                        
+                        // Weekly Summary Insight
+                        if !weeklyInsight.isEmpty {
+                            VStack(alignment: .leading, spacing: 16) {
+                                Text("Weekly Summary")
+                                    .font(.system(size: 18, weight: .semibold))
+                                    .foregroundColor(.white)
+                                    .padding(.horizontal, 20)
+                                
+                                WeeklySummaryCard(insight: weeklyInsight)
+                                    .padding(.horizontal, 20)
+                            }
+                        }
+                    } else {
+                        VStack(spacing: 16) {
+                            Text("No Data Available")
+                                .font(.system(size: 18, weight: .semibold))
+                                .foregroundColor(.white)
+                            Text("Refresh your health data to see insights")
+                                .font(.system(size: 14))
+                                .foregroundColor(.gray)
+                        }
+                        .frame(maxWidth: .infinity, alignment: .center)
+                        .padding(.top, 50)
                     }
                     
                     // Bottom padding for tab bar
@@ -112,6 +137,84 @@ struct InsightView: View {
                 }
             }
         }
+        .onAppear {
+            loadInsights()
+        }
+    }
+    
+    // MARK: - Helper Functions
+    
+    private func loadInsights() {
+        // Fetch current week summary
+        healthService.getWeeklySummary { summary in
+            if let summary = summary {
+                // Generate recommendations
+                self.recommendations = recommendationService.generateRecommendations(from: summary)
+                
+                // Fetch previous week for comparison
+                healthService.getPreviousWeekSummary { previousSummary in
+                    self.previousWeekSummary = previousSummary
+                    
+                    // Generate weekly insight
+                    self.weeklyInsight = trendService.generateWeeklyInsight(
+                        from: summary,
+                        previousWeekSummary: previousSummary
+                    )
+                }
+            }
+        }
+    }
+    
+    private func formatSleepDuration(_ hours: Double) -> String {
+        let h = Int(hours)
+        let m = Int((hours - Double(h)) * 60)
+        return "\(h)h \(m)m"
+    }
+    
+    private func getActivityLevel(_ load: Double) -> String {
+        if load < 250 {
+            return "Low"
+        } else if load < 500 {
+            return "Moderate"
+        } else {
+            return "High"
+        }
+    }
+    
+    private func getSleepInsight(current: WeeklySummary, previous: WeeklySummary?) -> String {
+        let previousValue = previous?.averageSleep ?? current.averageSleep
+        return recommendationService.generateMetricInsight(
+            metric: .sleep,
+            currentValue: current.averageSleep,
+            previousValue: previousValue
+        )
+    }
+    
+    private func getRHRInsight(current: WeeklySummary, previous: WeeklySummary?) -> String {
+        let previousValue = previous?.averageRestingHR ?? current.averageRestingHR
+        return recommendationService.generateMetricInsight(
+            metric: .restingHR,
+            currentValue: current.averageRestingHR,
+            previousValue: previousValue
+        )
+    }
+    
+    private func getHRVInsight(current: WeeklySummary, previous: WeeklySummary?) -> String {
+        let previousValue = previous?.averageHRV ?? current.averageHRV
+        return recommendationService.generateMetricInsight(
+            metric: .hrv,
+            currentValue: current.averageHRV,
+            previousValue: previousValue
+        )
+    }
+    
+    private func getActivityInsight(current: WeeklySummary, previous: WeeklySummary?) -> String {
+        let previousValue = previous?.averageActivityLoad ?? current.averageActivityLoad
+        return recommendationService.generateMetricInsight(
+            metric: .activity,
+            currentValue: current.averageActivityLoad,
+            previousValue: previousValue
+        )
     }
 }
 
@@ -121,6 +224,7 @@ struct MetricAnalysisCard: View {
     let title: String
     let subtitle: String
     let description: String
+    var trend: TrendDirection = .stable
     
     var body: some View {
         HStack(alignment: .top, spacing: 16) {
@@ -138,9 +242,18 @@ struct MetricAnalysisCard: View {
             
             // Content
             VStack(alignment: .leading, spacing: 6) {
-                Text(title)
-                    .font(.system(size: 16, weight: .bold))
-                    .foregroundColor(.white)
+                HStack {
+                    Text(title)
+                        .font(.system(size: 16, weight: .bold))
+                        .foregroundColor(.white)
+                    
+                    Spacer()
+                    
+                    // Trend indicator
+                    Text(trend.rawValue)
+                        .font(.system(size: 18, weight: .bold))
+                        .foregroundColor(Color(hex: trend.color))
+                }
                 
                 Text(subtitle)
                     .font(.system(size: 14, weight: .regular))
@@ -222,6 +335,53 @@ struct RecommendationCard: View {
     }
 }
 
+// MARK: - Weekly Summary Card
+struct WeeklySummaryCard: View {
+    let insight: String
+    
+    var body: some View {
+        HStack(alignment: .top, spacing: 16) {
+            // Light bulb icon
+            ZStack {
+                Circle()
+                    .fill(Color(hex: "6C636F"))
+                    .frame(width: 48, height: 48)
+                
+                Image(systemName: "lightbulb.fill")
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 24, height: 24)
+                    .foregroundColor(Color(hex: "39FFB6"))
+            }
+            
+            // Content
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Weekly Summary")
+                    .font(.system(size: 18, weight: .bold))
+                    .foregroundColor(Color(hex: "39FFB6"))
+                
+                Text(insight)
+                    .font(.system(size: 13, weight: .regular))
+                    .foregroundColor(.gray)
+                    .lineLimit(nil)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+        .padding(16)
+        .background(
+            LinearGradient(
+                gradient: Gradient(colors: [Color(hex: "a855f7").opacity(0.1), Color(hex: "1a1a1a")]),
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+        )
+        .cornerRadius(16)
+        .overlay(
+            RoundedRectangle(cornerRadius: 16)
+                .stroke(Color(hex: "a855f7").opacity(0.3), lineWidth: 1)
+        )
+    }
+}
 
 #Preview {
     InsightView()
