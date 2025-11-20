@@ -6,12 +6,18 @@
 //
 
 import SwiftUI
+import FirebaseAuth
 
 struct SignUpView: View {
+    @StateObject private var authManager = AuthManager()
     @State private var name: String = ""
     @State private var email: String = ""
     @State private var password: String = ""
     @State private var confirmPassword: String = ""
+    @State private var showAlert = false
+    @State private var alertMessage = ""
+    @State private var isLoading = false
+    @State private var navigateToHome = false
     @FocusState private var focusedField: Field?
     
     enum Field {
@@ -79,7 +85,7 @@ struct SignUpView: View {
                 
                 // Continue button
                 Button(action: {
-                    // Action to be implemented
+                    handleSignUp()
                 }) {
                     Text("Continue")
                         .font(.system(size: 17, weight: .bold))
@@ -100,7 +106,17 @@ struct SignUpView: View {
                 }
                 .shadow(color: Color(red: 0.847, green: 0.706, blue: 0.996).opacity(0.42), radius: 14, x: 0, y: 0)
                 .shadow(color: Color(red: 0.847, green: 0.706, blue: 0.996).opacity(0.28), radius: 21, x: 0, y: 0)
+                .disabled(isLoading)
+                .opacity(isLoading ? 0.6 : 1.0)
                 .padding(.bottom, 22)
+                
+                // Loading indicator
+                if isLoading {
+                    ProgressView()
+                        .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                        .scaleEffect(1.2)
+                        .padding(.bottom, 12)
+                }
                 
                 // Log In text
                 HStack(spacing: 5) {
@@ -147,6 +163,82 @@ struct SignUpView: View {
         .onTapGesture {
             focusedField = nil
         }
+        .alert("Sign Up", isPresented: $showAlert) {
+            Button("OK") { }
+        } message: {
+            Text(alertMessage)
+        }
+        .fullScreenCover(isPresented: $navigateToHome) {
+            HomeView()
+        }
+    }
+    
+    // MARK: - Sign Up Handler
+    private func handleSignUp() {
+        // Validation
+        guard !name.isEmpty else {
+            showError("Please enter your name")
+            return
+        }
+        
+        guard !email.isEmpty else {
+            showError("Please enter your email")
+            return
+        }
+        
+        guard isValidEmail(email) else {
+            showError("Please enter a valid email address")
+            return
+        }
+        
+        guard password.count >= 6 else {
+            showError("Password must be at least 6 characters")
+            return
+        }
+        
+        guard password == confirmPassword else {
+            showError("Passwords do not match")
+            return
+        }
+        
+        // Sign up with Firebase
+        isLoading = true
+        Task {
+            do {
+                try await authManager.signUp(email: email, password: password, name: name)
+                
+                // Save user profile to Firestore
+                if let userId = authManager.currentUserId {
+                    try await FirestoreManager.shared.saveUserProfile(
+                        userId: userId,
+                        name: name,
+                        email: email
+                    )
+                }
+                
+                // Success - navigate to home
+                await MainActor.run {
+                    isLoading = false
+                    navigateToHome = true
+                }
+            } catch {
+                await MainActor.run {
+                    isLoading = false
+                    showError(authManager.errorMessage.isEmpty ? error.localizedDescription : authManager.errorMessage)
+                }
+            }
+        }
+    }
+    
+    private func showError(_ message: String) {
+        alertMessage = message
+        showAlert = true
+    }
+    
+    private func isValidEmail(_ email: String) -> Bool {
+        let emailRegex = "[A-Z0-9a-z._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,64}"
+        let emailPredicate = NSPredicate(format:"SELF MATCHES %@", emailRegex)
+        return emailPredicate.evaluate(with: email)
     }
 }
 

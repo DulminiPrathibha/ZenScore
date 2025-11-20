@@ -6,10 +6,16 @@
 //
 
 import SwiftUI
+import FirebaseAuth
 
 struct LogInView: View {
+    @StateObject private var authManager = AuthManager()
     @State private var email: String = ""
     @State private var password: String = ""
+    @State private var showAlert = false
+    @State private var alertMessage = ""
+    @State private var isLoading = false
+    @State private var navigateToHome = false
     @FocusState private var focusedField: Field?
     
     enum Field {
@@ -55,7 +61,7 @@ struct LogInView: View {
                 
                 // Continue button
                 Button(action: {
-                    // Action to be implemented
+                    handleLogin()
                 }) {
                     Text("Continue")
                         .font(.system(size: 17, weight: .bold))
@@ -76,7 +82,17 @@ struct LogInView: View {
                 }
                 .shadow(color: Color(red: 0.847, green: 0.706, blue: 0.996).opacity(0.42), radius: 14, x: 0, y: 0)
                 .shadow(color: Color(red: 0.847, green: 0.706, blue: 0.996).opacity(0.28), radius: 21, x: 0, y: 0)
+                .disabled(isLoading)
+                .opacity(isLoading ? 0.6 : 1.0)
                 .padding(.bottom, 22)
+                
+                // Loading indicator
+                if isLoading {
+                    ProgressView()
+                        .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                        .scaleEffect(1.2)
+                        .padding(.bottom, 12)
+                }
                 
                 // Sign Up text
                 HStack(spacing: 5) {
@@ -123,6 +139,63 @@ struct LogInView: View {
         .onTapGesture {
             focusedField = nil
         }
+        .alert("Log In", isPresented: $showAlert) {
+            Button("OK") { }
+        } message: {
+            Text(alertMessage)
+        }
+        .fullScreenCover(isPresented: $navigateToHome) {
+            HomeView()
+        }
+    }
+    
+    // MARK: - Login Handler
+    private func handleLogin() {
+        // Validation
+        guard !email.isEmpty else {
+            showError("Please enter your email")
+            return
+        }
+        
+        guard !password.isEmpty else {
+            showError("Please enter your password")
+            return
+        }
+        
+        guard isValidEmail(email) else {
+            showError("Please enter a valid email address")
+            return
+        }
+        
+        // Sign in with Firebase
+        isLoading = true
+        Task {
+            do {
+                try await authManager.signIn(email: email, password: password)
+                
+                // Success - navigate to home
+                await MainActor.run {
+                    isLoading = false
+                    navigateToHome = true
+                }
+            } catch {
+                await MainActor.run {
+                    isLoading = false
+                    showError(authManager.errorMessage.isEmpty ? error.localizedDescription : authManager.errorMessage)
+                }
+            }
+        }
+    }
+    
+    private func showError(_ message: String) {
+        alertMessage = message
+        showAlert = true
+    }
+    
+    private func isValidEmail(_ email: String) -> Bool {
+        let emailRegex = "[A-Z0-9a-z._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,64}"
+        let emailPredicate = NSPredicate(format:"SELF MATCHES %@", emailRegex)
+        return emailPredicate.evaluate(with: email)
     }
 }
 
