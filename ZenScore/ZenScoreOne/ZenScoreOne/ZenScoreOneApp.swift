@@ -17,7 +17,7 @@ struct ZenScoreOneApp: App {
     
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            SplashScreenView()
         }
     }
 }

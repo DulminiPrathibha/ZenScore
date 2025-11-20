@@ -8,7 +8,9 @@
 import SwiftUI
 
 struct ContentView: View {
+    @StateObject private var healthService = HealthDataService.shared
     @State private var selectedTab = 0
+    @State private var showHealthKitPermission = false
     
     var body: some View {
         ZStack {
@@ -35,6 +37,42 @@ struct ContentView: View {
                 
                 // Custom Tab Bar
                 CustomTabBar(selectedTab: $selectedTab)
+            }
+        }
+        .onAppear {
+            requestHealthKitPermission()
+        }
+        .alert("HealthKit Permission", isPresented: $showHealthKitPermission) {
+            Button("Allow") {
+                requestHealthKitAccess()
+            }
+            Button("Not Now", role: .cancel) { }
+        } message: {
+            Text("ZenScore needs access to your health data to calculate your recovery score and provide personalized insights.")
+        }
+    }
+    
+    private func requestHealthKitPermission() {
+        // Check if HealthKit is available
+        guard HealthKitManager.shared.isHealthKitAvailable else {
+            print("HealthKit is not available on this device")
+            return
+        }
+        
+        // Request permission
+        showHealthKitPermission = true
+    }
+    
+    private func requestHealthKitAccess() {
+        healthService.requestAuthorization { success in
+            if success {
+                print("HealthKit authorization granted")
+                // Fetch initial data
+                healthService.refreshAllData {
+                    print("Initial health data loaded")
+                }
+            } else {
+                print("HealthKit authorization denied")
             }
         }
     }

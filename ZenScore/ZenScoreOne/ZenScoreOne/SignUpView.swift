@@ -17,7 +17,9 @@ struct SignUpView: View {
     @State private var showAlert = false
     @State private var alertMessage = ""
     @State private var isLoading = false
-    @State private var navigateToHome = false
+    @State private var navigateToLogin = false
+    @State private var showSuccessAlert = false
+    @Environment(\.dismiss) private var dismiss
     @FocusState private var focusedField: Field?
     
     enum Field {
@@ -125,7 +127,7 @@ struct SignUpView: View {
                         .foregroundColor(.white.opacity(0.9))
                     
                     Button(action: {
-                        // Navigate to log in
+                        dismiss()
                     }) {
                         Text("Log in")
                             .font(.system(size: 15, weight: .semibold))
@@ -168,8 +170,15 @@ struct SignUpView: View {
         } message: {
             Text(alertMessage)
         }
-        .fullScreenCover(isPresented: $navigateToHome) {
-            HomeView()
+        .fullScreenCover(isPresented: $navigateToLogin) {
+            LogInView()
+        }
+        .alert("Success!", isPresented: $showSuccessAlert) {
+            Button("OK") {
+                dismiss()
+            }
+        } message: {
+            Text("Account created successfully! Please log in with your credentials.")
         }
     }
     
@@ -216,10 +225,10 @@ struct SignUpView: View {
                     )
                 }
                 
-                // Success - navigate to home
+                // Success - show success message and go back to login
                 await MainActor.run {
                     isLoading = false
-                    navigateToHome = true
+                    showSuccessAlert = true
                 }
             } catch {
                 await MainActor.run {

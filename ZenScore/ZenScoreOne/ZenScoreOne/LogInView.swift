@@ -16,6 +16,7 @@ struct LogInView: View {
     @State private var alertMessage = ""
     @State private var isLoading = false
     @State private var navigateToHome = false
+    @State private var navigateToSignUp = false
     @FocusState private var focusedField: Field?
     
     enum Field {
@@ -101,7 +102,7 @@ struct LogInView: View {
                         .foregroundColor(.white.opacity(0.9))
                     
                     Button(action: {
-                        // Navigate to sign up
+                        navigateToSignUp = true
                     }) {
                         Text("Sign Up")
                             .font(.system(size: 15, weight: .semibold))
@@ -145,7 +146,10 @@ struct LogInView: View {
             Text(alertMessage)
         }
         .fullScreenCover(isPresented: $navigateToHome) {
-            HomeView()
+            ContentView()
+        }
+        .fullScreenCover(isPresented: $navigateToSignUp) {
+            SignUpView()
         }
     }
     

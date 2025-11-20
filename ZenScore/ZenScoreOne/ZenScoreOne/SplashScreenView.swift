@@ -13,8 +13,8 @@ struct SplashScreenView: View {
     
     var body: some View {
         if isActive {
-            // Navigate to main content after splash
-            ContentView()
+            // Navigate to login after splash
+            LogInView()
         } else {
             ZStack {
                 // Dark background

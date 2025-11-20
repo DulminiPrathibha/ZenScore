@@ -7,22 +7,11 @@
 
 import SwiftUI
 
-// MARK: - Color Extension for Hex Colors
-extension Color {
-    init(hex: String) {
-        let scanner = Scanner(string: hex)
-        scanner.currentIndex = hex.startIndex
-        var rgbValue: UInt64 = 0
-        scanner.scanHexInt64(&rgbValue)
-        let r = Double((rgbValue & 0xff0000) >> 16) / 255.0
-        let g = Double((rgbValue & 0x00ff00) >> 8) / 255.0
-        let b = Double(rgbValue & 0x0000ff) / 255.0
-        self.init(red: r, green: g, blue: b)
-    }
-}
 
 // MARK: - Home Dashboard View
 struct HomeView: View {
+    @StateObject private var healthService = HealthDataService.shared
+    
     var body: some View {
         ZStack {
             // Dark background
@@ -39,11 +28,11 @@ struct HomeView: View {
                         .padding(.top, 20)
                     
                     // Recovery Score Circle
-                    RecoveryScoreCircle()
+                    RecoveryScoreCircle(snapshot: healthService.todaySnapshot)
                         .padding(.vertical, 20)
                     
                     // Metrics Grid
-                    MetricsGrid()
+                    MetricsGrid(snapshot: healthService.todaySnapshot)
                         .padding(.horizontal, 20)
                         .padding(.bottom, 100)
                 }
@@ -54,6 +43,27 @@ struct HomeView: View {
 
 // MARK: - Recovery Score Circular Progress
 struct RecoveryScoreCircle: View {
+    let snapshot: DailyHealthSnapshot?
+    
+    private var recoveryScore: Double {
+        snapshot?.recoveryScore ?? 0
+    }
+    
+    private var recoveryPercentage: Double {
+        recoveryScore / 100.0
+    }
+    
+    private var recoveryStatus: String {
+        snapshot?.recoveryStatus ?? "No Data"
+    }
+    
+    private var recoveryColor: Color {
+        if let colorHex = snapshot?.recoveryColor {
+            return Color(hex: colorHex)
+        }
+        return Color.gray
+    }
+    
     var body: some View {
         ZStack {
             // Outer glow effect
@@ -74,9 +84,9 @@ struct RecoveryScoreCircle: View {
                 )
                 .frame(width: 280, height: 280)
             
-            // Progress circle (75%)
+            // Progress circle (dynamic based on recovery score)
             Circle()
-                .trim(from: 0, to: 0.75)
+                .trim(from: 0, to: recoveryPercentage)
                 .stroke(
                     Color(hex: "DF76FF"),
                     style: StrokeStyle(lineWidth: 20, lineCap: .round)
@@ -84,6 +94,7 @@ struct RecoveryScoreCircle: View {
                 .frame(width: 280, height: 280)
                 .rotationEffect(.degrees(-90))
                 .shadow(color: Color(hex: "a855f7").opacity(0.6), radius: 25, x: 0, y: 0)
+                .animation(.easeInOut(duration: 1.0), value: recoveryPercentage)
             
             // Inner circle background
             Circle()
@@ -96,11 +107,12 @@ struct RecoveryScoreCircle: View {
                     .font(.system(size: 16, weight: .regular))
                     .foregroundColor(.white)
                 
-                Text("75%")
+                Text(String(format: "%.0f%%", recoveryScore))
                     .font(.system(size: 56, weight: .bold))
-                    .foregroundColor(Color(hex: "10b981"))
+                    .foregroundColor(recoveryColor)
+                    .contentTransition(.numericText())
                 
-                Text("Good Recovery")
+                Text(recoveryStatus)
                     .font(.system(size: 14, weight: .regular))
                     .foregroundColor(.gray)
             }
@@ -110,18 +122,50 @@ struct RecoveryScoreCircle: View {
 
 // MARK: - Metrics Grid
 struct MetricsGrid: View {
+    let snapshot: DailyHealthSnapshot?
+    
     let columns = [
         GridItem(.flexible(), spacing: 16),
         GridItem(.flexible(), spacing: 16)
     ]
+    
+    private var sleepHours: String {
+        if let sleep = snapshot?.sleepDuration {
+            let hours = Int(sleep)
+            let minutes = Int((sleep - Double(hours)) * 60)
+            return "\(hours)h \(minutes)m"
+        }
+        return "--"
+    }
+    
+    private var restingHR: String {
+        if let rhr = snapshot?.restingHeartRate, rhr > 0 {
+            return String(format: "%.0f", rhr)
+        }
+        return "--"
+    }
+    
+    private var hrvValue: String {
+        if let hrv = snapshot?.hrv, hrv > 0 {
+            return String(format: "%.0f", hrv)
+        }
+        return "--"
+    }
+    
+    private var activityValue: String {
+        if let activity = snapshot?.activityLoad, activity > 0 {
+            return String(format: "%.0f", activity)
+        }
+        return "--"
+    }
     
     var body: some View {
         LazyVGrid(columns: columns, spacing: 16) {
             // Sleep Quality Card
             HealthMetricCard(
                 iconName: "home_sleep_quality",
-                label: "Sleep Quality",
-                value: "8.2",
+                label: "Sleep Duration",
+                value: sleepHours,
                 valueColor: Color(hex: "60a5fa")
             )
             
@@ -129,15 +173,15 @@ struct MetricsGrid: View {
             HealthMetricCard(
                 iconName: "home_resting_hr",
                 label: "Resting HR",
-                value: "52",
+                value: restingHR,
                 valueColor: Color(hex: "ef4444")
             )
             
             // HRV Card
             HealthMetricCard(
                 iconName: "home_hrv",
-                label: "HRV",
-                value: "342",
+                label: "HRV (SDNN)",
+                value: hrvValue,
                 valueColor: Color(hex: "22c55e")
             )
             
@@ -145,7 +189,7 @@ struct MetricsGrid: View {
             HealthMetricCard(
                 iconName: "home_activity_load",
                 label: "Activity Load",
-                value: "342",
+                value: activityValue,
                 valueColor: Color(hex: "f97316")
             )
         }

@@ -18,9 +18,22 @@
 		AC986ADF2ECD5482003486A9 /* ZenScoreOne.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = ZenScoreOne.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		AC986B352ECF9067003486A9 /* Exceptions for "ZenScoreOne" folder in "ZenScoreOne" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = AC986ADE2ECD5482003486A9 /* ZenScoreOne */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		AC986AE12ECD5482003486A9 /* ZenScoreOne */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				AC986B352ECF9067003486A9 /* Exceptions for "ZenScoreOne" folder in "ZenScoreOne" target */,
+			);
 			path = ZenScoreOne;
 			sourceTree = "<group>";
 		};
@@ -270,10 +283,15 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = ZenScoreOne/ZenScoreOne.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = ZenScoreOne/Info.plist;
+				INFOPLIST_KEY_NSHealthClinicalHealthRecordsShareUsageDescription = "ZenScore does not access clinical health records.";
+				INFOPLIST_KEY_NSHealthShareUsageDescription = "ZenScore needs access to your health data to calculate your recovery score, track sleep quality, heart rate variability, and activity levels. This helps provide personalized insights and recommendations.";
+				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "ZenScore may update your health data to keep track of your wellness journey.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -301,10 +319,15 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = ZenScoreOne/ZenScoreOne.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = ZenScoreOne/Info.plist;
+				INFOPLIST_KEY_NSHealthClinicalHealthRecordsShareUsageDescription = "ZenScore does not access clinical health records.";
+				INFOPLIST_KEY_NSHealthShareUsageDescription = "ZenScore needs access to your health data to calculate your recovery score, track sleep quality, heart rate variability, and activity levels. This helps provide personalized insights and recommendations.";
+				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "ZenScore may update your health data to keep track of your wellness journey.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
